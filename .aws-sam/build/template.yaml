@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sneaker Store API using Aurora MySQL and AWS Secrets Manager
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 60
+    MemorySize: 512
+    Tracing: Active
+    LoggingConfig:
+      LogFormat: JSON
+  Api:
+    Cors: '''*'''
+    TracingEnabled: true
+Resources:
+  PostShoesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/seedShoes.handler
+      CodeUri: PostShoesFunction
+      Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-07bd9d46068308407
+        SubnetIds:
+        - subnet-0b1bbdc0446135392
+        - subnet-046708b2fac504b7a
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      Events:
+        PostShoesAPI:
+          Type: Api
+          Properties:
+            Path: /shoes
+            Method: POST
+    Metadata:
+      SamResourceId: PostShoesFunction
+  GetShoesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getShoes.handler
+      CodeUri: GetShoesFunction
+      Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-07bd9d46068308407
+        SubnetIds:
+        - subnet-0b1bbdc0446135392
+        - subnet-046708b2fac504b7a
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      Events:
+        GetShoesAPI:
+          Type: Api
+          Properties:
+            Path: /shoes
+            Method: GET
+    Metadata:
+      SamResourceId: GetShoesFunction
+  GetShoeByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getshoe.handler
+      CodeUri: GetShoeByIdFunction
+      Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-07bd9d46068308407
+        SubnetIds:
+        - subnet-0b1bbdc0446135392
+        - subnet-046708b2fac504b7a
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      Events:
+        GetShoeByIdAPI:
+          Type: Api
+          Properties:
+            Path: /shoes/{id}
+            Method: GET
+    Metadata:
+      SamResourceId: GetShoeByIdFunction
+  PutShoeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/updateShoes.handler
+      CodeUri: PutShoeFunction
+      Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-07bd9d46068308407
+        SubnetIds:
+        - subnet-0b1bbdc0446135392
+        - subnet-046708b2fac504b7a
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      Events:
+        PutShoeAPI:
+          Type: Api
+          Properties:
+            Path: /shoes/{id}
+            Method: PUT
+    Metadata:
+      SamResourceId: PutShoeFunction
+  DeleteShoeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/deleteShoes.handler
+      CodeUri: DeleteShoeFunction
+      Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-07bd9d46068308407
+        SubnetIds:
+        - subnet-0b1bbdc0446135392
+        - subnet-046708b2fac504b7a
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      Events:
+        DeleteShoeAPI:
+          Type: Api
+          Properties:
+            Path: /shoes/{id}
+            Method: DELETE
+    Metadata:
+      SamResourceId: DeleteShoeFunction
+Outputs:
+  WebEndpoint:
+    Description: API Gateway endpoint URL for Prod stage
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
