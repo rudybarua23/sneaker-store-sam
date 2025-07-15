@@ -85,7 +85,8 @@ exports.handler = async (event) => {
       shoe.brand,
       shoe.price,
       shoe.size,
-      shoe.in_stock
+      shoe.in_stock,
+      shoe.image
     ]);
 
     const batchSize = 10;
@@ -94,7 +95,7 @@ exports.handler = async (event) => {
     for (let i = 0; i < shoeValues.length; i += batchSize) {
       const batch = shoeValues.slice(i, i + batchSize);
       console.log(`Inserting batch: ${JSON.stringify(batch)}`);
-      const insertQuery = 'INSERT INTO shoes (name, brand, price, size, in_stock) VALUES ?';
+      const insertQuery = 'INSERT INTO shoes (name, brand, price, size, in_stock, image) VALUES ?';
       const [result] = await connection.query(insertQuery, [batch]);
       console.log(`Inserted batch of ${result.affectedRows} shoes.`);
       totalInserted += result.affectedRows;

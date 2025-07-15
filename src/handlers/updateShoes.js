@@ -47,7 +47,7 @@ exports.handler = async (event) => {
   let connection;
 
   try {
-    console.log('Lambda function started for PUT shoe by ID.');
+    console.log('Lambda function started to update shoe by ID.');
 
     const shoeId = event.pathParameters?.id;
 
@@ -61,9 +61,9 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ message: 'Request body is required.' }) };
     }
 
-    const { name, brand, price, size, in_stock } = JSON.parse(event.body);
+    const { name, brand, price, size, in_stock, image } = JSON.parse(event.body);
 
-    if (!name || !brand || price == null || size == null || in_stock == null) {
+    if (!name || !brand || price == null || size == null || in_stock == null || image == null) {
       console.error('Missing one or more required shoe fields.');
       return { statusCode: 400, body: JSON.stringify({ message: 'All shoe fields are required.' }) };
     }
@@ -72,11 +72,11 @@ exports.handler = async (event) => {
 
     const updateQuery = `
       UPDATE shoes 
-      SET name = ?, brand = ?, price = ?, size = ?, in_stock = ? 
+      SET name = ?, brand = ?, price = ?, size = ?, in_stock = ?, image = ?
       WHERE id = ?
     `;
     console.log(`Executing update query for shoe ID ${shoeId}`);
-    const [result] = await connection.query(updateQuery, [name, brand, price, size, in_stock, shoeId]);
+    const [result] = await connection.query(updateQuery, [name, brand, price, size, in_stock, image, shoeId]);
 
     if (result.affectedRows === 0) {
       console.warn(`Shoe with ID ${shoeId} not found for update.`);
