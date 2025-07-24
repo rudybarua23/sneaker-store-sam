@@ -10,129 +10,156 @@ Globals:
     Tracing: Active
     LoggingConfig:
       LogFormat: JSON
-  Api:
-    Cors: "'*'"
-    TracingEnabled: true
 
 Resources:
+
+  PostShoesApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: PostShoes
+      StageName: dev
+      DefinitionUri: openapi.yaml
 
   PostShoesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/seedShoes.handler
-      CodeUri: .
+      Handler: seedShoes.handler
+      CodeUri: src/handlers/
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
-      VpcConfig:
-        SecurityGroupIds:
-          - sg-07bd9d46068308407
-        SubnetIds:
-          - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
-      Environment:
-        Variables:
-          SECRET_NAME: admin_cred
-          REGION: us-east-1
       Events:
         PostShoesAPI:
           Type: Api
           Properties:
+            RestApiId: !Ref PostShoesApi
             Path: /shoes
             Method: POST
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-07bd9d46068308407
+        SubnetIds:
+          - subnet-0b1bbdc0446135392
+          - subnet-046708b2fac504b7a
 
   GetShoesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/getShoes.handler
-      CodeUri: .
+      Handler: getShoes.handler
+      CodeUri: src/handlers/
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
-      VpcConfig:
-        SecurityGroupIds:
-          - sg-07bd9d46068308407
-        SubnetIds:
-          - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
-      Environment:
-        Variables:
-          SECRET_NAME: admin_cred
-          REGION: us-east-1
       Events:
         GetShoesAPI:
           Type: Api
           Properties:
+            RestApiId: !Ref PostShoesApi
             Path: /shoes
             Method: GET
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-07bd9d46068308407
+        SubnetIds:
+          - subnet-0b1bbdc0446135392
+          - subnet-046708b2fac504b7a
 
   GetShoeByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/getshoe.handler
-      CodeUri: .
+      Handler: getshoe.handler
+      CodeUri: src/handlers/
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
-      VpcConfig:
-        SecurityGroupIds:
-          - sg-07bd9d46068308407
-        SubnetIds:
-          - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
-      Environment:
-        Variables:
-          SECRET_NAME: admin_cred
-          REGION: us-east-1
       Events:
         GetShoeByIdAPI:
           Type: Api
           Properties:
+            RestApiId: !Ref PostShoesApi
             Path: /shoes/{id}
             Method: GET
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-07bd9d46068308407
+        SubnetIds:
+          - subnet-0b1bbdc0446135392
+          - subnet-046708b2fac504b7a
 
   PutShoeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/updateShoes.handler
-      CodeUri: .
+      Handler: updateShoes.handler
+      CodeUri: src/handlers/
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
-      VpcConfig:
-        SecurityGroupIds:
-          - sg-07bd9d46068308407
-        SubnetIds:
-          - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
-      Environment:
-        Variables:
-          SECRET_NAME: admin_cred
-          REGION: us-east-1
       Events:
         PutShoeAPI:
           Type: Api
           Properties:
+            RestApiId: !Ref PostShoesApi
             Path: /shoes/{id}
             Method: PUT
-
-  DeleteShoeFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: src/handlers/deleteShoes.handler
-      CodeUri: .
-      Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
       VpcConfig:
         SecurityGroupIds:
           - sg-07bd9d46068308407
         SubnetIds:
           - subnet-0b1bbdc0446135392
           - subnet-046708b2fac504b7a
-      Environment:
-        Variables:
-          SECRET_NAME: admin_cred
-          REGION: us-east-1
+
+  DeleteShoeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: deleteShoes.handler
+      CodeUri: src/handlers/
+      Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
       Events:
         DeleteShoeAPI:
           Type: Api
           Properties:
+            RestApiId: !Ref PostShoesApi
             Path: /shoes/{id}
             Method: DELETE
+      Environment:
+        Variables:
+          SECRET_NAME: admin_cred
+          REGION: us-east-1
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-07bd9d46068308407
+        SubnetIds:
+          - subnet-0b1bbdc0446135392
+          - subnet-046708b2fac504b7a
+
+  ListImagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: imageList.handler
+      CodeUri: src/handlers/
+      Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
+      Events:
+        ListImagesAPI:
+          Type: Api
+          Properties:
+            RestApiId: !Ref PostShoesApi
+            Path: /images
+            Method: GET
+      Environment:
+        Variables:
+          REGION: us-east-1
+      # This one doesn't need DB access, so no VPC needed
 
 Outputs:
   WebEndpoint:
-    Description: API Gateway endpoint URL for Prod stage
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${PostShoesApi}.execute-api.${AWS::Region}.amazonaws.com/dev/"
 
