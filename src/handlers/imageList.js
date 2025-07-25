@@ -1,4 +1,4 @@
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+const { S3Client, ListObjectsV2Command } = require("@aws-sdk/client-s3");
 
 const REGION = "us-east-1";
 const BUCKET_NAME = "sneakersbucket-publicfiles";
@@ -6,7 +6,7 @@ const FOLDER_PREFIX = "images/";
 
 const s3 = new S3Client({ region: REGION });
 
-export const handler = async () => {
+exports.handler = async () => {
   try {
     const command = new ListObjectsV2Command({
       Bucket: BUCKET_NAME,
@@ -23,9 +23,8 @@ export const handler = async () => {
     }
 
     const imageUrls = response.Contents
-        .filter(obj => !obj.Key.endsWith("/")) // Exclude the folder itself
-        .map(obj => `https://${BUCKET_NAME}.s3.amazonaws.com/${obj.Key}`);
-
+      .filter(obj => !obj.Key.endsWith("/")) // Exclude the folder itself
+      .map(obj => `https://${BUCKET_NAME}.s3.amazonaws.com/${obj.Key}`);
 
     return {
       statusCode: 200,
@@ -39,3 +38,4 @@ export const handler = async () => {
     };
   }
 };
+
