@@ -4,27 +4,111 @@ Description: Sneaker Store API using Aurora MySQL and AWS Secrets Manager
 
 Globals:
   Function:
+    CodeUri: src/
     Runtime: nodejs20.x
     Timeout: 60
     MemorySize: 512
     Tracing: Active
     LoggingConfig:
       LogFormat: JSON
+    Environment:
+      Variables:
+        # Toggle your app behavior:
+        CONFIG_SOURCE: !If [IsDemo, "SecretsManager", "Env"]
+
+        # Used when CONFIG_SOURCE=Env (day-to-day, no endpoint):
+        DB_HOST: "{{resolve:ssm:/sneaker/db/host}}"
+        DB_USER: "{{resolve:ssm:/sneaker/db/user}}"
+        DB_PASSWORD: !Ref DbPassword
+        DB_NAME: "{{resolve:ssm:/sneaker/db/name}}"
+
+        # Used when CONFIG_SOURCE=SecretsManager (demo):
+        SECRET_NAME: admin_cred
+
+Parameters:
+  DbPassword:
+    Type: String
+    NoEcho: true
+
+  DemoMode:
+    Type: String
+    AllowedValues: ["true","false"]
+    Default: "false"   # everyday mode by default
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-0c2a68bc57d4c7c26
+
+  LambdaSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-0b1bbdc0446135392   # us-east-1a private subnet
+
+  LambdaSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: sg-07bd9d46068308407
+
+Conditions:
+  IsDemo: !Equals [!Ref DemoMode, "true"]
+
 
 Resources:
+
+  SecretsManagerEndpointSG:
+    Type: AWS::EC2::SecurityGroup
+    Condition: IsDemo
+    Properties:
+      GroupDescription: Allow Lambda to reach SM endpoint
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref LambdaSecurityGroupId
+
+  SecretsManagerVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: IsDemo
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.secretsmanager
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: [ !Ref LambdaSubnetId ]   # one subnet = one ENI
+      SecurityGroupIds: [ !Ref SecretsManagerEndpointSG ]
+
 
   PostShoesApi:
     Type: AWS::Serverless::Api
     Properties:
       Name: PostShoes
       StageName: dev
-      DefinitionUri: openapi.yaml
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: arn:aws:cognito-idp:us-east-1:441651574722:userpool/us-east-1_8bMnXBmfA
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
 
   PostShoesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: seedShoes.handler
-      CodeUri: src/handlers/
+      Handler: handlers/seedShoes.handler
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
       Events:
         PostShoesAPI:
@@ -33,6 +117,8 @@ Resources:
             RestApiId: !Ref PostShoesApi
             Path: /shoes
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
       Environment:
         Variables:
           SECRET_NAME: admin_cred
@@ -42,13 +128,11 @@ Resources:
           - sg-07bd9d46068308407
         SubnetIds:
           - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
 
   GetShoesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: getShoes.handler
-      CodeUri: src/handlers/
+      Handler: handlers/getShoes.handler
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
       Events:
         GetShoesAPI:
@@ -57,6 +141,8 @@ Resources:
             RestApiId: !Ref PostShoesApi
             Path: /shoes
             Method: GET
+            Auth:
+              Authorizer: NONE
       Environment:
         Variables:
           SECRET_NAME: admin_cred
@@ -66,13 +152,11 @@ Resources:
           - sg-07bd9d46068308407
         SubnetIds:
           - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
 
   GetShoeByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: getshoe.handler
-      CodeUri: src/handlers/
+      Handler: handlers/getshoe.handler
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
       Events:
         GetShoeByIdAPI:
@@ -81,6 +165,8 @@ Resources:
             RestApiId: !Ref PostShoesApi
             Path: /shoes/{id}
             Method: GET
+            Auth:
+              Authorizer: NONE
       Environment:
         Variables:
           SECRET_NAME: admin_cred
@@ -90,13 +176,11 @@ Resources:
           - sg-07bd9d46068308407
         SubnetIds:
           - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
 
   PutShoeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: updateShoes.handler
-      CodeUri: src/handlers/
+      Handler: handlers/updateShoes.handler
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
       Events:
         PutShoeAPI:
@@ -105,6 +189,8 @@ Resources:
             RestApiId: !Ref PostShoesApi
             Path: /shoes/{id}
             Method: PUT
+            Auth:
+              Authorizer: CognitoAuthorizer
       Environment:
         Variables:
           SECRET_NAME: admin_cred
@@ -114,13 +200,11 @@ Resources:
           - sg-07bd9d46068308407
         SubnetIds:
           - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
 
   DeleteShoeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: deleteShoes.handler
-      CodeUri: src/handlers/
+      Handler: handlers/deleteShoes.handler
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
       Events:
         DeleteShoeAPI:
@@ -129,6 +213,8 @@ Resources:
             RestApiId: !Ref PostShoesApi
             Path: /shoes/{id}
             Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
       Environment:
         Variables:
           SECRET_NAME: admin_cred
@@ -138,13 +224,11 @@ Resources:
           - sg-07bd9d46068308407
         SubnetIds:
           - subnet-0b1bbdc0446135392
-          - subnet-046708b2fac504b7a
 
   ListImagesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: imageList.handler
-      CodeUri: src/handlers/
+      Handler: handlers/imageList.handler
       Role: arn:aws:iam::441651574722:role/service-role/shoe_seeder-role-ltrdul30
       Events:
         ListImagesAPI:
@@ -153,13 +237,8 @@ Resources:
             RestApiId: !Ref PostShoesApi
             Path: /images
             Method: GET
+            Auth:
+              Authorizer: NONE
       Environment:
         Variables:
           REGION: us-east-1
-      # This one doesn't need DB access, so no VPC needed
-
-Outputs:
-  WebEndpoint:
-    Description: API Gateway endpoint URL
-    Value: !Sub "https://${PostShoesApi}.execute-api.${AWS::Region}.amazonaws.com/dev/"
-
