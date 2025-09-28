@@ -1,15 +1,7 @@
 const mysql = require('mysql2/promise');
-const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-
-const secret_name = "admin_cred";
-const client = new SecretsManagerClient({ region: "us-east-1" });
-
-console.log('forcing cold start');
 
 let cachedConnection = null;
 let cachedSecret = null;
-
-const { getPool } = require('../lib/db');
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -19,17 +11,40 @@ const CORS_HEADERS = {
 };
 
 async function getSecret() {
+  const mode = process.env.CONFIG_SOURCE;
+  console.log(`CONFIG_SOURCE=${mode}`);
+
+  // Everyday (Env) mode: NO AWS calls
+  if (mode !== 'SecretsManager') {
+    return {
+      host: process.env.DB_HOST,
+      username: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      dbname: process.env.DB_NAME,
+    };
+  }
+
   if (cachedSecret) return cachedSecret;
 
+  // Demo mode: lazy-load SM client so Env mode never bundles/calls it
+  const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
+
+  const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
+  const secretName = process.env.SECRET_NAME || 'admin_cred';
+
   console.log('Retrieving database credentials from Secrets Manager...');
-  const response = await client.send(
-    new GetSecretValueCommand({
-      SecretId: secret_name,
-      VersionStage: "AWSCURRENT",
-    })
-  );
+  const client = new SecretsManagerClient({ region });
+  const response = await client.send(new GetSecretValueCommand({SecretId: secretName, VersionStage: "AWSCURRENT",}));
   console.log('Successfully retrieved secret from Secrets Manager.');
-  cachedSecret = JSON.parse(response.SecretString);
+
+  // Normalize possible key variants:
+  const s = JSON.parse(response.SecretString);
+  cachedSecret = {
+    host: s.host || s.hostname,
+    username: s.username || s.user,
+    password: s.password,
+    dbname: s.dbname || s.database,
+  };
   return cachedSecret;
 }
 
