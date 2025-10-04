@@ -84,11 +84,12 @@ Resources:
       StageName: dev
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: arn:aws:cognito-idp:us-east-1:441651574722:userpool/us-east-1_8bMnXBmfA
       Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowMethods: "'GET,POST,PUT,DELETE,PATCH,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
       GatewayResponses:
@@ -97,13 +98,13 @@ Resources:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,PATCH,OPTIONS'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,PATCH,OPTIONS'"
 
   PostShoesFunction:
     Type: AWS::Serverless::Function
@@ -189,6 +190,14 @@ Resources:
             RestApiId: !Ref PostShoesApi
             Path: /shoes/{id}
             Method: PUT
+            Auth:
+              Authorizer: CognitoAuthorizer
+        PatchShoeInventoryAPI:          
+          Type: Api
+          Properties:
+            RestApiId: !Ref PostShoesApi
+            Path: /shoes/{id}/inventory
+            Method: PATCH
             Auth:
               Authorizer: CognitoAuthorizer
       Environment:

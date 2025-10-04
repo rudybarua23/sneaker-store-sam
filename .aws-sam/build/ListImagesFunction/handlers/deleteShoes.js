@@ -91,7 +91,7 @@ async function withDb(fn) {
 }
 
 /** ---------- Auth Helpers ---------- **/
-// API Gateway (HTTP API JWT authorizer) injects verified claims here:
+// API Gateway (REST User Pool authorizer or HTTP API JWT authorizer) injects claims here:
 function getClaims(event) {
   return event?.requestContext?.authorizer?.jwt?.claims || event?.requestContext?.authorizer?.claims || {};
 }
