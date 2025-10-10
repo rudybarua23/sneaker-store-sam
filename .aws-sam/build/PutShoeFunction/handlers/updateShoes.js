@@ -104,7 +104,6 @@ async function handlePutUpdate(event, shoeId) {
   const body = parseJsonBody(event);
   if (!body) return resp(400, { message: 'Invalid JSON body' });
 
-  // Partial shoe fields + optional full inventory replace
   const { name, brand, price, image, inventory } = body;
 
   const sets = [];
@@ -136,24 +135,40 @@ async function handlePutUpdate(event, shoeId) {
     }
 
     if (Array.isArray(inventory)) {
-      // Replace entire inventory
-      await conn.query('DELETE FROM shoe_inventory WHERE shoe_id = ?', [shoeId]);
+      // ---- MERGE / UPSERT (does not delete other sizes) ----
+      const upsertRows = [];
+      const deleteSizes = [];
 
-      const rows = [];
       for (const item of inventory) {
-        if (item && item.size != null) {
-          rows.push([Number(shoeId), Number(item.size), Number(item.quantity || 1)]);
+        if (!item || item.size == null) continue;
+
+        // allow explicit deletions via { size, delete: true } or { size, quantity: null }
+        if (item.delete === true || item.quantity == null) {
+          deleteSizes.push(Number(item.size));
+        } else {
+          upsertRows.push([Number(shoeId), Number(item.size), Number(item.quantity)]);
         }
       }
-      if (rows.length) {
+
+      if (upsertRows.length) {
         const batchSize = 10;
-        for (let i = 0; i < rows.length; i += batchSize) {
-          const batch = rows.slice(i, i + batchSize);
+        for (let i = 0; i < upsertRows.length; i += batchSize) {
+          const batch = upsertRows.slice(i, i + batchSize);
           await conn.query(
-            'INSERT INTO shoe_inventory (shoe_id, size, quantity) VALUES ?',
+            'INSERT INTO shoe_inventory (shoe_id, size, quantity) VALUES ? ' +
+            'ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)',
             [batch]
           );
         }
+      }
+
+      if (deleteSizes.length) {
+        // delete only those explicitly marked
+        const placeholders = deleteSizes.map(() => '?').join(',');
+        await conn.query(
+          `DELETE FROM shoe_inventory WHERE shoe_id = ? AND size IN (${placeholders})`,
+          [Number(shoeId), ...deleteSizes]
+        );
       }
     }
 
@@ -165,6 +180,7 @@ async function handlePutUpdate(event, shoeId) {
     throw e;
   }
 }
+
 
 /* -------------------- PATCH logic: /shoes/{id}/inventory -------------------- */
 /**
