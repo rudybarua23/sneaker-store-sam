@@ -1,32 +1,44 @@
-# Sneaker Store — Backend (AWS SAM, Lambda, Aurora MySQL, Cognito + S3)
+# Sneaker Store — Backend (Serverless API Template)
 
-A serverless REST API built with **AWS SAM** (CloudFormation), **AWS Lambda (Node.js 20)**, **API Gateway**, **Aurora MySQL**, and **Amazon Cognito** (JWT authorizer). It powers the Sneaker Store frontend with CRUD and inventory endpoints, and an S3 image listing endpoint.
+A serverless REST API (AWS SAM + API Gateway + Lambda + Aurora/RDS MySQL) with public read endpoints and **JWT-protected** admin endpoints. Although this template uses “shoes”, you can adapt it to any product catalog.
+
+> Replace anything in angle brackets like `<YOUR_VALUE>` with your real values.
+
+---
+
+## Live URLs 
+- Frontend: https://dxfbbjnnl2x5b.cloudfront.net/
+- API (dev): https://b5gwibc2nd.execute-api.us-east-1.amazonaws.com/dev
 
 ---
 
 ## 🏗️ Architecture (high level)
 ```
-[CloudFront/S3 (frontend)]  →  HTTPS  →  API Gateway (REST)
-                                          ↓
-                                      Lambda (Node 20)  →  Aurora MySQL (VPC)
-                                          ↓
-                              S3 (sneakersbucket-publicfiles, prefix="images/")
-                                      Cognito (JWT auth, admin group)
+[Frontend (CloudFront/S3)]  →  HTTPS  →  API Gateway (REST)
+                                         ↓
+                                     Lambda (Node 20)  →  Aurora/RDS MySQL (VPC)
+                                         ↓
+                                   S3 (<YOUR_S3_BUCKET>, prefix="<YOUR_IMAGES_PREFIX>")
+                                  Auth (JWT via <YOUR_OIDC_OR_COGNITO>)
 ```
-- **Authorizer:** `CognitoAuthorizer` on admin‑required routes; `NONE` on some public routes (e.g., /images).
-- **Networking:** Lambdas run inside a VPC (private subnets) with SG rules to reach Aurora.
-- **Deploy:** `sam build` + `sam deploy` via `template.yaml`.
+- **Authorizer:** JWT authorizer on admin routes; `NONE` on selected public routes (e.g., `/images` if desired).
+- **Networking:** Lambdas run inside a VPC (private subnets) with SG rules to reach the DB.
+- **Deploy:** `sam build` + `sam deploy` via `template.yaml` (no hardcoded IDs).
 
-**Endpoints (from `template.yaml`)**
+---
+
+## 📡 Endpoints
 ```
-GET    /shoes                  # list shoes (usually public)
-POST   /shoes                  # create (admin)
-GET    /shoes/{id}             # detail
-PUT    /shoes/{id}             # update shoe fields (admin)
-PATCH  /shoes/{id}/inventory   # upsert inventory rows (admin)
-DELETE /shoes/{id}             # delete (admin)
-GET    /images                 # list S3 image objects in a prefix
+GET    /shoes                      # list products (public)
+GET    /shoes/{id}                 # product detail (public)
+POST   /shoes                      # create product (JWT required)
+PUT    /shoes/{id}                 # update product fields (JWT required)
+PATCH  /shoes/{id}/inventory       # upsert inventory rows (JWT required)
+DELETE /shoes/{id}                 # delete product (JWT required)
+GET    /images                     # list image keys under a prefix (public, optional)
 ```
+- Attach a **JWT authorizer** to POST/PUT/PATCH/DELETE.
+- Frontend sends `Authorization: Bearer <JWT>` on admin endpoints.
 
 ---
 
@@ -35,126 +47,191 @@ GET    /images                 # list S3 image objects in a prefix
 src/
   handlers/
     getShoes.js
-    getshoe.js               # single shoe detail
-    updateShoes.js           # updates fields; enforces admin via cognito:groups
+    getshoe.js               # single item detail
+    updateShoes.js           # create/update + inventory upsert
     deleteShoes.js
-    seedShoes.js             # optional one‑time data seeder
+    seedShoes.js             # optional one-time data seeder
     imageList.js             # lists S3 objects under a prefix
   lib/
-    config.js                # loads DB config from env or AWS Secrets Manager
+    config.js                # loads DB config from env or Secrets Manager
     db.js                    # mysql2 pooled connection helper
-template.yaml                # SAM template (functions, authorizer, VPC, params)
+template.yaml                # SAM template (API, functions, params)
 ```
 
 ---
 
-## 🔐 Configuration & Env Vars
-Two configuration modes are supported by `lib/config.js`:
+## ⚙️ Configuration & Env Vars
+Choose one **config mode** in `lib/config.js`:
 
-**1) Env mode (default)** — set DB connection details directly via env vars  
-**2) Secrets Manager mode** — set `CONFIG_SOURCE=SecretsManager` and provide a secret
-
-**Common env vars**
+**A) Env mode**
 ```
-# DB (used when CONFIG_SOURCE != SecretsManager)
-DB_HOST=<aurora-endpoint>
+CONFIG_SOURCE=Env
+DB_HOST=<YOUR_DB_ENDPOINT>
 DB_PORT=3306
-DB_NAME=<database>
-DB_USER=<username>
-DB_PASSWORD=<password>
-
-# Config source
-CONFIG_SOURCE=Env               # or SecretsManager
-SECRET_NAME=<name-or-arn>       # required when CONFIG_SOURCE=SecretsManager
+DB_NAME=<YOUR_DB_NAME>
+DB_USER=<YOUR_DB_USER>
+DB_PASSWORD=<YOUR_DB_PASSWORD>
 
 # CORS
-CORS_ORIGIN=https://your-frontend-domain.example   # "*" by default for some handlers
+CORS_ORIGIN=https://<YOUR_CLOUDFRONT_DOMAIN>
 
-# AWS region hints (some handlers use REGION or AWS_REGION)
-AWS_REGION=us-east-1
+# Optional (images endpoint)
+IMAGES_BUCKET=<YOUR_S3_BUCKET>
+IMAGES_PREFIX=<YOUR_IMAGES_PREFIX>        # e.g., images/
+IMAGE_PUBLIC_BASE=https://<YOUR_CDN_OR_CLOUDFRONT_DOMAIN>/
 ```
 
-**Secrets Manager value** (JSON)
-```json
-{
-  "host": "your-aurora.cluster-xyz.us-east-1.rds.amazonaws.com",
-  "username": "dbuser",
-  "password": "P@ssw0rd!",
-  "dbname": "sneakerdb",
-  "port": 3306
-}
+**B) Secrets Manager mode**
 ```
+CONFIG_SOURCE=SecretsManager
+SECRET_NAME=<YOUR_DB_SECRET_NAME>         # JSON: { host, username, password, dbname, port }
+CORS_ORIGIN=https://<YOUR_CLOUDFRONT_DOMAIN>
+
+# Optional (images endpoint)
+IMAGES_BUCKET=<YOUR_S3_BUCKET>
+IMAGES_PREFIX=<YOUR_IMAGES_PREFIX>
+IMAGE_PUBLIC_BASE=https://<YOUR_CDN_OR_CLOUDFRONT_DOMAIN>/
+```
+
+> For non-secret values you can also use **SSM Parameter Store** dynamic refs in `template.yaml`:
+> `DB_HOST: "{{resolve:ssm:/yourapp/db/host}}"` (resolved at deploy time).
 
 ---
 
-## 🏗️ Build & Deploy with SAM
-**Prereqs**: AWS account & credentials, **AWS SAM CLI**, **Node.js 20**
+## 🔑 Parameters to provide at deploy
+Provide these via `sam deploy --guided` or `--parameter-overrides` (names may vary in your template):
 
-```bash
-# from the backend repo root
-sam build
+| Parameter                  | Example / Notes                                  |
+|---------------------------|---------------------------------------------------|
+| `VpcId`                   | `<vpc-xxxxxxxx>`                                  |
+| `LambdaSubnetIds`         | `<subnet-a,subnet-b>` (private subnets)           |
+| `LambdaSecurityGroupIds`  | `<sg-xxxxxxxx>` (egress to DB/VPC endpoints)      |
+| `CognitoUserPoolArn` or JWT config | Authorizer source (if using Cognito)     |
+| `DbPassword` / `SecretName` | Choose Env or Secrets Manager path              |
+| `ImagesBucket` / `ImagesPrefix` (optional) | For the `/images` endpoint       |
+| `CorsOrigin`              | `https://<YOUR_CLOUDFRONT_DOMAIN>`                |
 
-# First deploy uses --guided to set parameters (stack name, region, VPC/Subnet/SG, etc.)
-sam deploy --guided
+**Helpful Output** (add to `template.yaml`):
+```yaml
+Outputs:
+  ApiBaseUrl:
+    Description: Base URL for this API
+    Value: !Sub "https://${<YOUR_API_REF>}.execute-api.${AWS::Region}.amazonaws.com/<YOUR_STAGE>"
 ```
-
-If you later change code only, you can: `sam build && sam deploy`.
-
-> **Note:** Some handlers (e.g., `imageList.js`) reference S3 bucket/region in code. Update those constants or refactor to env vars/parameters before deploying to a different bucket/region.
 
 ---
 
 ## 🧪 Local Development
-You can run functions locally with `sam local start-api` or `sam local invoke`. For DB access, either:
-- Point env vars at a **publicly reachable** test MySQL instance, or
-- Use AWS connectivity solutions (e.g., localstack/VPC tunneling).
+Run the API locally with **SAM** and an env file.
 
-Example:
+**`env.local.json.example`**
+```json
+{
+  "Parameters": { "DbPassword": "local-dev-only" },
+  "YourFunctionLogicalId": {
+    "CONFIG_SOURCE": "Env",
+    "DB_HOST": "127.0.0.1",
+    "DB_USER": "root",
+    "DB_PASSWORD": "local-dev-only",
+    "DB_NAME": "sneakerdb",
+    "CORS_ORIGIN": "http://localhost:5173",
+
+    "IMAGES_BUCKET": "<YOUR_S3_BUCKET>",
+    "IMAGES_PREFIX": "images/",
+    "IMAGE_PUBLIC_BASE": "http://localhost:5173/"
+  }
+}
+```
+
+Start:
 ```bash
-# terminal 1
 sam local start-api --env-vars env.local.json
+# API runs on http://localhost:3000
+```
 
-# terminal 2 (seed data once if you have a handler wired for it)
-awslocal lambda invoke --function-name SeedShoesFunction out.json
+Point your frontend at:
+```
+VITE_API_BASE=http://localhost:3000
 ```
 
 ---
 
-## 🔒 Authorization
-Admin-protected routes expect a **Cognito JWT** with `cognito:groups` including `admin`. When integrating from the frontend, the Amplify v6 `fetchAuthSession()` helper is used to attach the **ID token** in `Authorization: Bearer <idToken>`.
-
-If you prefer validating **access tokens**, update your authorizer & frontend accordingly.
-
----
-
-## 🗄️ Data Model 
-```
+## 🧱 Data Model
+```sql
 shoes(
   id BIGINT PK AUTO_INCREMENT,
   name VARCHAR(255) NOT NULL,
   brand VARCHAR(100) NOT NULL,
   price DECIMAL(10,2) NOT NULL,
-  image VARCHAR(512) NOT NULL        
+  image VARCHAR(512) NOT NULL        -- CDN URL (e.g., /images/<file>)
 )
+```
 
+```sql
 shoe_inventory(
   id BIGINT PK AUTO_INCREMENT,
-  shoe_id BIGINT NOT NULL            
-  size DECIMAL(3,1) NOT NULL,        
+  shoe_id BIGINT NOT NULL,           -- FK -> shoes.id
+  size DECIMAL(3,1) NOT NULL,        -- supports 7.5, 9.5, 10.0, 11.5, etc.
   quantity INT NOT NULL,
-  UNIQUE (shoe_id, size)             
+  UNIQUE (shoe_id, size)             -- one row per size per shoe
+  -- optionally add: FOREIGN KEY (shoe_id) REFERENCES shoes(id) ON DELETE CASCADE
 )
 ```
 
 ---
 
+## 🔐 Auth & CORS
+- Use a **JWT authorizer** (Cognito or any OIDC provider) on POST/PUT/PATCH/DELETE.
+- Frontend sends: `Authorization: Bearer <JWT>`.
+- **Production CORS**: set `CORS_ORIGIN=https://<YOUR_CLOUDFRONT_DOMAIN>`.
+
+---
+
+## 📡 Request Examples
+```bash
+# Public list
+curl -s "$API_BASE/shoes" | jq .
+
+# Admin create
+curl -X POST "$API_BASE/shoes"   -H "Authorization: Bearer $TOKEN"   -H "Content-Type: application/json"   -d '{ "name":"Air Zoom", "brand":"Nike", "price":129.99, "image":"https://<YOUR_CDN_OR_CLOUDFRONT_DOMAIN>/images/zoom.jpg" }'
+
+# Upsert inventory
+curl -X PATCH "$API_BASE/shoes/123/inventory"   -H "Authorization: Bearer $TOKEN"   -H "Content-Type: application/json"   -d '{ "items":[{"size":8,"quantity":5},{"size":9.5,"quantity":2}] }'
+```
+
+---
+
 ## 🐞 Troubleshooting
-- **CORS errors**: set `CORS_ORIGIN` and confirm API Gateway/Lambda headers align.
-- **Timeouts**: verify Lambda can reach Aurora (VPC, SG, route tables, NACLs).
-- **Auth 401/403**: ensure Cognito authorizer is configured and your token has `cognito:groups: admin` when needed.
-- **Images empty**: confirm the S3 bucket, prefix, and permissions; update handler to your bucket/prefix.
+- **CORS blocked**: `CORS_ORIGIN` doesn’t match your frontend URL.
+- **401/403 on writes**: missing/expired JWT or insufficient claims.
+- **Timeouts**: Lambda can’t reach DB (VPC, route tables, SG rules).
+- **Empty `/images`**: verify bucket/prefix and IAM permission; set `IMAGES_*` envs.
+
+---
+
+## 📈 Monitoring & Cleanup
+- **Logs**: CloudWatch Logs (JSON). **Tracing**: enable X-Ray if desired.
+- **Costs**: Aurora/RDS and VPC endpoints can incur charges when idle.
+- **Delete**: `sam delete` tears down the stack.
+
+---
+
+## 🔒 Security Notes
+- Prefer SAM-managed roles with **least-privilege** policies (avoid hardcoded ARNs).
+- Keep DB in **private subnets**; allow inbound only from the **Lambda SG**.
+- Use **Secrets Manager / SSM** for credentials; never commit secrets.
+- Consider throttling/usage plans and **WAF** on API Gateway.
+
+---
+
+## 📦 Error Model (suggested)
+- Standard HTTP codes; JSON body:
+```json
+{ "message": "validation failed", "code": "VALIDATION_ERROR" }
+```
 
 ---
 
 ## License
 MIT 
+
