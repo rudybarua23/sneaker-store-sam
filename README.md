@@ -14,12 +14,21 @@ A serverless REST API (AWS SAM + API Gateway + Lambda + Aurora/RDS MySQL) with p
 
 ## 🏗️ Architecture (high level)
 ```
-[Frontend (CloudFront/S3)]  →  HTTPS  →  API Gateway (REST)
-                                         ↓
-                                     Lambda (Node 20)  →  Aurora/RDS MySQL (VPC)
-                                         ↓
-                                   S3 (<YOUR_S3_BUCKET>, prefix="<YOUR_IMAGES_PREFIX>")
-                                  Auth (JWT via <YOUR_OIDC_OR_COGNITO>)
+[User Browser]
+   │
+   │  loads SPA (HTML/CSS/JS/images)
+   ▼
+[CloudFront CDN] ──► [S3 (private, OAC-only)]
+
+[User Browser]
+   │
+   │  HTTPS (Authorization: Bearer <JWT> on admin calls)
+   ▼
+[API Gateway (REST) + JWT Authorizer]
+   │
+   ▼
+[Lambda (Node 20, in VPC)] ──(IAM)──► [Aurora/RDS MySQL]
+
 ```
 - **Authorizer:** JWT authorizer on admin routes; `NONE` on selected public routes (e.g., `/images` if desired).
 - **Networking:** Lambdas run inside a VPC (private subnets) with SG rules to reach the DB.
