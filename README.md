@@ -12,6 +12,18 @@ A serverless REST API (AWS SAM + API Gateway + Lambda + Aurora/RDS MySQL) with p
 
 ---
 
+## 💳 Checkout & Payments (In Progress)
+Backend payment processing is not implemented yet. The API currently exposes product
+& inventory endpoints only.
+
+Planned (backend):
+- `POST /checkout/payment-intent` (or `/checkout/session`) to create/initiate a payment
+- `POST /webhooks/payment` to receive provider events (e.g., payment_succeeded/failed)
+- Order persistence (orders, order_items) and email receipt
+- Secrets in AWS Secrets Manager; no raw card data handled by the API (processor-hosted fields only)
+
+---
+
 ## 🏗️ Architecture (high level)
 ```
 [User Browser]
