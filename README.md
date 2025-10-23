@@ -32,7 +32,7 @@ A serverless REST API (AWS SAM + API Gateway + Lambda + Aurora/RDS MySQL) with p
 ```
 - **Authorizer:** JWT authorizer on admin routes; `NONE` on selected public routes (e.g., `/images` if desired).
 - **Networking:** Lambdas run inside a VPC (private subnets) with SG rules to reach the DB.
-- **Deploy:** `sam build` + `sam deploy` via `template.yaml` (no hardcoded IDs).
+- **Deploy:** `sam build` + `sam deploy` via `template.yaml`.
 
 ---
 
