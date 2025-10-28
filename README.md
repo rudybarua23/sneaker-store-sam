@@ -9,7 +9,7 @@ A serverless REST API (AWS SAM + API Gateway + Lambda + Aurora/RDS MySQL) with p
 ## Live URLs & Demo Video
 - Frontend: https://dxfbbjnnl2x5b.cloudfront.net/
 - API (dev): https://b5gwibc2nd.execute-api.us-east-1.amazonaws.com/dev
-- Demo: https://github.com/rudybarua23/sneaker-store/releases/tag/Demo
+- Demo: https://github.com/rudybarua23/sneaker-store-sam/releases/tag/Demo
 
 ---
 
