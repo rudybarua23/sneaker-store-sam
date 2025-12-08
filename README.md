@@ -246,14 +246,6 @@ curl -X PATCH "$API_BASE/shoes/123/inventory"   -H "Authorization: Bearer $TOKEN
 
 ---
 
-## Error Model (suggested)
-- Standard HTTP codes; JSON body:
-```json
-{ "message": "validation failed", "code": "VALIDATION_ERROR" }
-```
-
----
-
 ## License
 MIT 
 
