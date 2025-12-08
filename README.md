@@ -13,7 +13,7 @@ A serverless REST API (AWS SAM + API Gateway + Lambda + Aurora/RDS MySQL) with p
 
 ---
 
-## 💳 Checkout & Payments (In Progress)
+## Checkout & Payments (In Progress)
 Backend payment processing is not implemented yet. The API currently exposes product
 & inventory endpoints only.
 
@@ -25,7 +25,7 @@ Planned (backend):
 
 ---
 
-## 🏗️ Architecture (high level)
+## Architecture (high level)
 ```
 [User Browser]
    │
@@ -49,7 +49,7 @@ Planned (backend):
 
 ---
 
-## 📡 Endpoints
+## Endpoints
 ```
 GET    /shoes                      # list products (public)
 GET    /shoes/{id}                 # product detail (public)
@@ -64,7 +64,7 @@ GET    /images                     # list image keys under a prefix (public, opt
 
 ---
 
-## 📦 Code Layout (high level)
+## Code Layout (high level)
 ```
 src/
   handlers/
@@ -82,7 +82,7 @@ template.yaml                # SAM template (API, functions, params)
 
 ---
 
-## ⚙️ Configuration & Env Vars
+## Configuration & Env Vars
 Choose one **config mode** in `lib/config.js`:
 
 **A) Env mode**
@@ -120,7 +120,7 @@ IMAGE_PUBLIC_BASE=https://<YOUR_CDN_OR_CLOUDFRONT_DOMAIN>/
 
 ---
 
-## 🔑 Parameters to provide at deploy
+## Parameters to provide at deploy
 Provide these via `sam deploy --guided` or `--parameter-overrides` (names may vary in your template):
 
 | Parameter                  | Example / Notes                                  |
@@ -143,7 +143,7 @@ Outputs:
 
 ---
 
-## 🧪 Local Development
+## Local Development
 Run the API locally with **SAM** and an env file.
 
 **`env.local.json.example`**
@@ -178,7 +178,7 @@ VITE_API_BASE=http://localhost:3000
 
 ---
 
-## 🧱 Data Model
+## Data Model
 ```sql
 shoes(
   id BIGINT PK AUTO_INCREMENT,
@@ -202,14 +202,14 @@ shoe_inventory(
 
 ---
 
-## 🔐 Auth & CORS
+## Auth & CORS
 - Use a **JWT authorizer** (Cognito or any OIDC provider) on POST/PUT/PATCH/DELETE.
 - Frontend sends: `Authorization: Bearer <JWT>`.
 - **Production CORS**: set `CORS_ORIGIN=https://<YOUR_CLOUDFRONT_DOMAIN>`.
 
 ---
 
-## 📡 Request Examples
+## Request Examples
 ```bash
 # Public list
 curl -s "$API_BASE/shoes" | jq .
@@ -223,7 +223,7 @@ curl -X PATCH "$API_BASE/shoes/123/inventory"   -H "Authorization: Bearer $TOKEN
 
 ---
 
-## 🐞 Troubleshooting
+## Troubleshooting
 - **CORS blocked**: `CORS_ORIGIN` doesn’t match your frontend URL.
 - **401/403 on writes**: missing/expired JWT or insufficient claims.
 - **Timeouts**: Lambda can’t reach DB (VPC, route tables, SG rules).
@@ -231,14 +231,14 @@ curl -X PATCH "$API_BASE/shoes/123/inventory"   -H "Authorization: Bearer $TOKEN
 
 ---
 
-## 📈 Monitoring & Cleanup
+## Monitoring & Cleanup
 - **Logs**: CloudWatch Logs (JSON). **Tracing**: enable X-Ray if desired.
 - **Costs**: Aurora/RDS and VPC endpoints can incur charges when idle.
 - **Delete**: `sam delete` tears down the stack.
 
 ---
 
-## 🔒 Security Notes
+## Security Notes
 - Prefer SAM-managed roles with **least-privilege** policies (avoid hardcoded ARNs).
 - Keep DB in **private subnets**; allow inbound only from the **Lambda SG**.
 - Use **Secrets Manager / SSM** for credentials; never commit secrets.
@@ -246,7 +246,7 @@ curl -X PATCH "$API_BASE/shoes/123/inventory"   -H "Authorization: Bearer $TOKEN
 
 ---
 
-## 📦 Error Model (suggested)
+## Error Model (suggested)
 - Standard HTTP codes; JSON body:
 ```json
 { "message": "validation failed", "code": "VALIDATION_ERROR" }
